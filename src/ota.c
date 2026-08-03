@@ -29,7 +29,14 @@ static const char *TAG = "ota";
 
 static httpd_handle_t s_server;
 
-/* Throughput since @since_us, in bytes per second. Zero if no time has passed. */
+/*
+ * Throughput since @since_us, in bytes per second.
+ *
+ * Signed 64-bit microseconds, matching esp_timer_get_time(): it cannot wrap in
+ * any realistic uptime, so there is no modular-arithmetic reason to prefer
+ * unsigned, and a negative interval reads as obviously wrong rather than as a
+ * plausible huge positive.
+ */
 static int rate_bps(int bytes, int64_t since_us)
 {
     int64_t elapsed = esp_timer_get_time() - since_us;
@@ -55,11 +62,18 @@ static esp_err_t update_post(httpd_req_t *req)
 
     ESP_LOGI(TAG, "update started, %d bytes -> %s", req->content_len, target->label);
 
+    /* esp_ota_begin() erases the destination up front -- a second or more of
+     * dead time before the first byte can land. Timed so the gap in the log is
+     * self-explanatory rather than looking like a stall. */
+    const int64_t erase_start_us = esp_timer_get_time();
+
     esp_ota_handle_t handle = 0;
     esp_err_t err = esp_ota_begin(target, req->content_len, &handle);
     if (err != ESP_OK) {
         return fail(req, HTTPD_500_INTERNAL_SERVER_ERROR, esp_err_to_name(err));
     }
+    ESP_LOGI(TAG, "erased in %d ms",
+             (int)((esp_timer_get_time() - erase_start_us) / 1000));
 
     static char buf[OTA_CHUNK];
     const int total = req->content_len;
@@ -93,7 +107,7 @@ static esp_err_t update_post(httpd_req_t *req)
         }
         stalls = 0;
 
-        if (started_us == 0) {
+        if (remaining == total) {           /* nothing written yet */
             started_us = esp_timer_get_time();
         }
 
@@ -105,8 +119,8 @@ static esp_err_t update_post(httpd_req_t *req)
         remaining -= got;
 
         if (total - remaining >= next_report) {
-            ESP_LOGI(TAG, "%d/%d bytes, %d B/s",
-                     total - remaining, total, rate_bps(total - remaining, started_us));
+            ESP_LOGI(TAG, "%d/%d bytes, %d B/s", total - remaining, total,
+                     rate_bps(total - remaining, started_us));
             next_report += OTA_REPORT_EVERY;
         }
     }
