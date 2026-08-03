@@ -35,10 +35,11 @@
 #define CONFIG_MQTT_URI         "mqtt://streaky.lan:1883"
 
 /* Base topic. Published topics are:
- *   ${CONFIG_MQTT_BASE}${MAC}          <- payload, verbatim
+ *   ${CONFIG_MQTT_BASE}${MAC}/${KEY}   <- payload after the "key\t" prefix
+ *   ${CONFIG_MQTT_BASE}${MAC}          <- whole payload, if it has no key
  *   ${CONFIG_MQTT_BASE}${MAC}/rssi     <- RSSI, published first
  * Include the trailing separator. */
-#define CONFIG_MQTT_BASE        "espnow_t/"
+#define CONFIG_MQTT_BASE        "espnow/"
 
 #define CONFIG_MQTT_QOS         0
 #define CONFIG_MQTT_RETAIN      0

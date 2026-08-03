@@ -5,7 +5,11 @@
  * and sits in permanent ESP-NOW receive. Every received frame is republished as:
  *
  *     ${CONFIG_MQTT_BASE}${MAC}/rssi   <- link quality, published first
- *     ${CONFIG_MQTT_BASE}${MAC}        <- the payload, byte for byte
+ *     ${CONFIG_MQTT_BASE}${MAC}/${KEY} <- the payload after the tab, byte for byte
+ *
+ * Senders prefix the payload with "key\t"; the key becomes the last topic
+ * level and is not otherwise interpreted. A frame with no usable key goes out
+ * whole on ${CONFIG_MQTT_BASE}${MAC}, as before.
  */
 #include <stdio.h>
 #include <string.h>
@@ -35,12 +39,16 @@ static const char *TAG = "main";
 #define MAC_LEN   12
 #define SUFFIX    "/rssi"
 
+/* A key longer than this is not a key, it is a payload that happens to have a
+ * tab in it. Such a frame is published whole, on the MAC topic. */
+#define KEY_MAX   32
+
 /*
- * One topic buffer, written in place: the MAC is rendered once and the
- * "/rssi" suffix is added and removed by moving a single NUL. Touched only
- * from the ESP-NOW dispatch task, so no locking is needed.
+ * One topic buffer, written in place: the MAC is rendered once and everything
+ * after it -- "/rssi", then "/${KEY}" -- is rewritten per publish. Touched
+ * only from the ESP-NOW dispatch task, so no locking is needed.
  */
-static char s_topic[BASE_LEN + MAC_LEN + sizeof(SUFFIX)] = CONFIG_MQTT_BASE;
+static char s_topic[BASE_LEN + MAC_LEN + 1 + KEY_MAX + 1] = CONFIG_MQTT_BASE;
 
 static uint32_t s_dropped_seen;
 
@@ -71,9 +79,23 @@ static void on_espnow_msg(const espnow_msg_t *msg, void *ctx)
     int rssi_len = snprintf(rssi, sizeof(rssi), "%d", msg->rssi);
     mqtt_publish(s_topic, rssi, (size_t)rssi_len);
 
-    /* Drop the suffix and republish the payload verbatim on the base topic. */
-    s_topic[BASE_LEN + MAC_LEN] = '\0';
-    mqtt_publish(s_topic, msg->data, msg->len);
+    /*
+     * "key\tpayload". Only the tab is looked for -- what follows it is the
+     * sender's business and goes out byte for byte.
+     */
+    char *suffix = &s_topic[BASE_LEN + MAC_LEN];
+    const uint8_t *tab = memchr(msg->data, '\t', msg->len);
+    size_t key_len = tab ? (size_t)(tab - msg->data) : 0;
+
+    if (key_len > 0 && key_len <= KEY_MAX) {
+        *suffix = '/';
+        memcpy(suffix + 1, msg->data, key_len);
+        suffix[1 + key_len] = '\0';
+        mqtt_publish(s_topic, tab + 1, msg->len - key_len - 1);
+    } else {
+        *suffix = '\0';
+        mqtt_publish(s_topic, msg->data, msg->len);
+    }
 
     uint32_t dropped = espnow_dropped();
     if (dropped != s_dropped_seen) {
