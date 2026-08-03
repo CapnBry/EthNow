@@ -1,0 +1,61 @@
+# ---------------------------------------------------------------------------
+# EthNow -- ESP32-C3 ETH01-EVO
+# ---------------------------------------------------------------------------
+
+# --- Flash / partitions ----------------------------------------------------
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+
+# --- Console ---------------------------------------------------------------
+# Deliberately not configured. The C3 defaults are already UART0 on its IOMUX
+# pins (U0TXD/U0RXD) at 115200 with USB-serial-JTAG mirrored as secondary --
+# the same UART the ROM bootloader prints on, so the log never moves mid-boot.
+# Overriding the pins here is what silenced the console once already: GPIO19 is
+# USB D+ on this chip, not U0TXD.
+
+# --- Logging ---------------------------------------------------------------
+# Only ERROR/WARN/INFO are emitted anywhere in this project; compiling out
+# DEBUG/VERBOSE strips the unused format strings from the image.
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+CONFIG_LOG_MAXIMUM_LEVEL_INFO=y
+# Bootloader at INFO: it names the partition it selected, which is the fastest
+# way to tell a boot-selection problem from an app problem.
+CONFIG_BOOTLOADER_LOG_LEVEL_INFO=y
+
+# --- DM9051 SPI ethernet ---------------------------------------------------
+CONFIG_ETH_USE_SPI_ETHERNET=y
+CONFIG_ETH_SPI_ETHERNET_DM9051=y
+CONFIG_ETH_SPI_ETHERNET_W5500=n
+CONFIG_ETH_SPI_ETHERNET_KSZ8851SNL=n
+CONFIG_ETH_USE_ESP32_EMAC=n
+
+# --- Wi-Fi: ESP-NOW listener only, never associates ------------------------
+CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=8
+CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=16
+CONFIG_ESP_WIFI_TX_BUFFER_TYPE=1
+CONFIG_ESP_WIFI_DYNAMIC_TX_BUFFER_NUM=8
+CONFIG_ESP_WIFI_AMPDU_TX_ENABLED=n
+CONFIG_ESP_WIFI_AMPDU_RX_ENABLED=n
+CONFIG_ESP_WIFI_NVS_ENABLED=n
+
+# --- MQTT: plain TCP only --------------------------------------------------
+# Dropping the SSL and websocket transports takes mbedtls and the root cert
+# bundle out of the image entirely -- roughly a third of the firmware.
+CONFIG_MQTT_TRANSPORT_SSL=n
+CONFIG_MQTT_TRANSPORT_WEBSOCKET=n
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=n
+
+# --- OTA over HTTP ---------------------------------------------------------
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=n
+CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
+
+# --- Size ------------------------------------------------------------------
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y
+CONFIG_COMPILER_STACK_CHECK_MODE_NONE=y
+# Keep the error-string table: startup and OTA failures are reported through
+# esp_err_to_name(), and "ESP_ERR_TIMEOUT" beats "UNKNOWN ERROR" by more than
+# the few KB it costs.
+CONFIG_ESP_ERR_TO_NAME_LOOKUP=y
+CONFIG_LWIP_IPV6=n

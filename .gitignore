@@ -1,0 +1,23 @@
+# --- Build output ----------------------------------------------------------
+# PlatformIO's build directory, plus the toolchains and frameworks it fetches.
+.pio/
+
+# idf.py's build directory, if this is ever built outside PlatformIO.
+build/
+
+# --- Generated configuration -----------------------------------------------
+# sdkconfig.<env> is regenerated from sdkconfig.defaults on every build, and
+# stale copies silently override it. Only the defaults are source.
+sdkconfig
+sdkconfig.*
+!sdkconfig.defaults
+
+# --- Managed components ----------------------------------------------------
+# Component sources are re-fetched by the IDF component manager. Note that
+# dependencies.lock is deliberately NOT ignored: it pins the exact mdns
+# version, the same way platformio.ini pins the IDF release.
+managed_components/
+
+# --- Editors / IDEs --------------------------------------------------------
+# PlatformIO regenerates this from platformio.ini.
+.vscode/

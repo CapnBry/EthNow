@@ -1,0 +1,5 @@
+## mDNS is optional -- it exists so the platformio "ota" environment can use
+## <hostname>.local as upload_port. Remove this file (and the component
+## manager fetch it triggers) if you build offline or upload by IP.
+dependencies:
+  espressif/mdns: "^1.2.0"
