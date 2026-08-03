@@ -4,6 +4,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 
 #include "esp_err.h"
 
@@ -21,3 +22,12 @@ typedef void (*eth_state_cb_t)(bool online, void *ctx);
  * asynchronously and is reported through @cb.
  */
 esp_err_t eth_start(eth_state_cb_t cb, void *ctx);
+
+/*
+ * Current address as a dotted quad, "0.0.0.0" while the link has none, and
+ * whether it was leased rather than configured. @dhcp may be NULL.
+ *
+ * Reads a snapshot taken when the address was bound rather than calling into
+ * esp_netif, so it is safe from any task.
+ */
+void eth_ip_str(char *out, size_t cap, bool *dhcp);

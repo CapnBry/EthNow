@@ -86,3 +86,16 @@
 /* Unauthenticated firmware upload endpoint, reachable on the LAN only. */
 #define CONFIG_OTA_PORT         80
 #define CONFIG_OTA_PATH         "/update"
+
+/* ==========================================================================
+ * Status page
+ * ========================================================================== */
+
+/* Received frames kept for the status page, on the same server as OTA. Each
+ * slot is ~264 bytes of static BSS. A browser that connects late is replayed
+ * this many frames; anything older is gone. */
+#define CONFIG_WEB_HISTORY      10
+
+/* Browsers that can watch at once. Each holds an HTTP socket open for as long
+ * as its tab is; the rest of the server's sockets stay free for OTA. */
+#define CONFIG_WEB_WS_CLIENTS   4

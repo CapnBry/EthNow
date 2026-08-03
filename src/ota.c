@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "esp_app_desc.h"
 #include "esp_check.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
@@ -12,8 +11,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#include "app_id.h"
 #include "config.h"
+#include "web.h"
 
 static const char *TAG = "ota";
 
@@ -146,25 +145,13 @@ static esp_err_t update_post(httpd_req_t *req)
     return ESP_OK;
 }
 
-static esp_err_t root_get(httpd_req_t *req)
-{
-    const esp_app_desc_t *app = esp_app_get_description();
-    const esp_partition_t *running = esp_ota_get_running_partition();
-
-    char body[192];
-    int n = snprintf(body, sizeof(body),
-                     "%s\nversion: %s\nbuilt:   %s %s\nrunning: %s\nupdate:  POST "
-                     CONFIG_OTA_PATH "\n",
-                     app_hostname(), app->version, app->date, app->time, running->label);
-
-    httpd_resp_set_type(req, "text/plain");
-    return httpd_resp_send(req, body, n);
-}
-
 esp_err_t ota_set_online(bool online)
 {
     if (!online) {
         if (s_server) {
+            /* Before httpd_stop(): the status page holds this handle for its
+             * asynchronous websocket sends. */
+            web_detach();
             httpd_stop(s_server);
             s_server = NULL;
         }
@@ -188,13 +175,13 @@ esp_err_t ota_set_online(bool online)
         .method = HTTP_POST,
         .handler = update_post,
     };
-    static const httpd_uri_t root_uri = {
-        .uri = "/",
-        .method = HTTP_GET,
-        .handler = root_get,
-    };
     httpd_register_uri_handler(s_server, &update_uri);
-    httpd_register_uri_handler(s_server, &root_uri);
+
+    esp_err_t err = web_attach(s_server);
+    if (err != ESP_OK) {
+        /* The status page is not worth losing the update endpoint over. */
+        ESP_LOGE(TAG, "status page unavailable: %s", esp_err_to_name(err));
+    }
 
     ESP_LOGI(TAG, "listening on port %d, POST " CONFIG_OTA_PATH, CONFIG_OTA_PORT);
     return ESP_OK;

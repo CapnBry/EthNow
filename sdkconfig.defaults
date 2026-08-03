@@ -47,9 +47,15 @@ CONFIG_MQTT_TRANSPORT_SSL=n
 CONFIG_MQTT_TRANSPORT_WEBSOCKET=n
 CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=n
 
-# --- OTA over HTTP ---------------------------------------------------------
+# --- OTA and the status page, over HTTP ------------------------------------
 CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=n
 CONFIG_HTTPD_MAX_REQ_HDR_LEN=1024
+# The status page pushes live data over a websocket on the same server.
+CONFIG_HTTPD_WS_SUPPORT=y
+# Every open browser tab parks one socket on the server for as long as it is
+# open. The default 10 leaves too little headroom once MQTT, mDNS and an OTA
+# upload are also holding one each.
+CONFIG_LWIP_MAX_SOCKETS=16
 
 # --- Size ------------------------------------------------------------------
 CONFIG_COMPILER_OPTIMIZATION_SIZE=y

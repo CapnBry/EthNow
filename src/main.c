@@ -26,6 +26,7 @@
 #include "eth.h"
 #include "mqtt.h"
 #include "ota.h"
+#include "web.h"
 
 static const char *TAG = "main";
 
@@ -54,6 +55,10 @@ static void write_mac_hex(char *dst, const uint8_t mac[6])
 
 static void on_espnow_msg(const espnow_msg_t *msg, void *ctx)
 {
+    /* First, and unconditionally: the status page is most useful precisely
+     * when MQTT is down. It only copies the frame -- no I/O happens here. */
+    web_on_message(msg);
+
     if (!mqtt_is_connected()) {
         return;
     }

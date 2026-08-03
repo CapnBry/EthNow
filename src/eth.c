@@ -24,6 +24,15 @@ static esp_eth_handle_t s_eth;
 static eth_state_cb_t   s_cb;
 static void            *s_cb_ctx;
 
+/*
+ * Address snapshot for the status page, published from the event task and
+ * read from anywhere. Both fields are written before the link is announced as
+ * up and only ever read afterwards, so a plain copy is enough -- there is no
+ * multi-word value here that could be torn into something misleading.
+ */
+static char s_ip[16] = "0.0.0.0";
+static bool s_dhcp;
+
 #ifdef CONFIG_IP
 static esp_err_t apply_static_ip(esp_netif_t *netif)
 {
@@ -61,6 +70,7 @@ static void on_eth_event(void *arg, esp_event_base_t base, int32_t id, void *dat
     }
     case ETHERNET_EVENT_DISCONNECTED:
         ESP_LOGW(TAG, "link down");
+        snprintf(s_ip, sizeof(s_ip), "0.0.0.0");
         if (s_cb) {
             s_cb(false, s_cb_ctx);
         }
@@ -73,6 +83,12 @@ static void on_eth_event(void *arg, esp_event_base_t base, int32_t id, void *dat
 static void on_got_ip(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
     const ip_event_got_ip_t *event = (const ip_event_got_ip_t *)data;
+
+    snprintf(s_ip, sizeof(s_ip), IPSTR, IP2STR(&event->ip_info.ip));
+
+    esp_netif_dhcp_status_t dhcp = ESP_NETIF_DHCP_STOPPED;
+    esp_netif_dhcpc_get_status(s_netif, &dhcp);
+    s_dhcp = dhcp != ESP_NETIF_DHCP_STOPPED;
 
     ESP_LOGI(TAG, "ip " IPSTR " mask " IPSTR " gw " IPSTR,
              IP2STR(&event->ip_info.ip),
@@ -173,4 +189,12 @@ esp_err_t eth_start(eth_state_cb_t cb, void *ctx)
                         TAG, "ip_event");
 
     return esp_eth_start(s_eth);
+}
+
+void eth_ip_str(char *out, size_t cap, bool *dhcp)
+{
+    snprintf(out, cap, "%s", s_ip);
+    if (dhcp) {
+        *dhcp = s_dhcp;
+    }
 }

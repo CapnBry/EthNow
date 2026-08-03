@@ -18,6 +18,7 @@
  * transient buffer, and is not touched again.
  */
 typedef struct {
+    uint32_t ms;                        /* uptime at receive, milliseconds */
     uint8_t  mac[6];                    /* sender's address */
     int8_t   rssi;                      /* dBm, from the frame's RX control block */
     uint16_t len;                       /* payload length, never 0 */
@@ -33,6 +34,9 @@ typedef void (*espnow_msg_cb_t)(const espnow_msg_t *msg, void *ctx);
 
 /* Start Wi-Fi, ESP-NOW and the dispatch task. */
 esp_err_t espnow_start(espnow_msg_cb_t cb, void *ctx);
+
+/* Frames accepted off the air, whether or not they survived the pool. */
+uint32_t espnow_received(void);
 
 /* Frames dropped because the pool was exhausted (consumer fell behind). */
 uint32_t espnow_dropped(void);

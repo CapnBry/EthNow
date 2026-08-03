@@ -18,6 +18,18 @@ For every received frame, with `MAC` formatted `%02x%02x%02x%02x%02x%02x`:
 
 Payloads over 250 bytes (the ESP-NOW v1.0 limit) are not accepted.
 
+## Status page
+
+`http://<host>/` is a live status page: hostname, address (and whether it was
+leased), MQTT connection, ESP-NOW packet count, channel and long-range state,
+plus the last `CONFIG_WEB_HISTORY` received frames with their uptime stamp,
+sender, RSSI and payload. Click a row to keep it — a kept row stays visible
+after it ages out of the device's ring, sinking to the bottom of the table —
+and press <kbd>Esc</kbd> to clear the selection.
+
+Everything arrives over a websocket on `/ws`; the page itself is a single
+document embedded in the firmware, with no external requests of any kind.
+
 ## Building
 
 Edit `src/config.h` first — at minimum `CONFIG_MQTT_URI`.
@@ -34,15 +46,19 @@ USB-serial-JTAG, so it shows up on whichever the host is attached to.
 
 Set the OTA target with `custom_ota_host` in `platformio.ini` (device IP or
 `<hostname>.local`). Upload is a plain `curl` POST of `firmware.bin` to
-`http://<host>/update`; `GET /` reports the running version and slot. The
-device logs transfer progress and throughput as it writes.
+`http://<host>/update`; the status page footer reports the running version and
+slot. The device logs transfer progress and throughput as it writes.
 
 If the UART upload is unreliable on your cable, lower `upload_speed` in
 `[env:uart]`.
 
 ## Notes
 
-- **No authentication on OTA.** Keep the device on a trusted network.
+- **No authentication on OTA or the status page.** Keep the device on a
+  trusted network.
+- The status page never blocks reception: the ESP-NOW dispatch task only copies
+  each frame into a ring buffer, and a separate task does the websocket writes.
+  A stalled browser costs it frames, not the device.
 - Subsystem startup failures are logged, not fatal — a wiring fault leaves the
   device up and complaining on the console instead of boot looping.
 - Dual OTA slots in a 4 MB flash; sizes are in `partitions.csv`. A UART flash

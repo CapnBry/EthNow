@@ -4,6 +4,7 @@
 
 #include "esp_check.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -29,6 +30,7 @@ static QueueHandle_t s_ready;
 
 static espnow_msg_cb_t s_cb;
 static void           *s_cb_ctx;
+static uint32_t        s_received;
 static uint32_t        s_dropped;
 
 #ifdef CONFIG_ESPNOW_MAC
@@ -74,6 +76,8 @@ static void on_recv(const esp_now_recv_info_t *info, const uint8_t *data, int le
         return;
     }
 
+    s_received++;
+
     espnow_msg_t *msg;
     if (xQueueReceive(s_free, &msg, 0) != pdTRUE) {
         /* Never block the Wi-Fi task -- shed the frame instead. */
@@ -81,6 +85,9 @@ static void on_recv(const esp_now_recv_info_t *info, const uint8_t *data, int le
         return;
     }
 
+    /* Stamped here rather than in the consumer, so the time on the status page
+     * is when the frame landed, not when the queue got around to it. */
+    msg->ms = (uint32_t)(esp_timer_get_time() / 1000);
     memcpy(msg->mac, info->src_addr, sizeof(msg->mac));
     msg->rssi = info->rx_ctrl ? (int8_t)info->rx_ctrl->rssi : 0;
     msg->len = (uint16_t)len;
@@ -187,6 +194,11 @@ esp_err_t espnow_start(espnow_msg_cb_t cb, void *ctx)
 #endif
              mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     return ESP_OK;
+}
+
+uint32_t espnow_received(void)
+{
+    return s_received;
 }
 
 uint32_t espnow_dropped(void)
