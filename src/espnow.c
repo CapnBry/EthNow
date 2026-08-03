@@ -98,6 +98,13 @@ static void dispatch_task(void *arg)
     for (;;) {
         espnow_msg_t *msg;
         if (xQueueReceive(s_ready, &msg, portMAX_DELAY) == pdTRUE) {
+            /* Logged here rather than in the consumer so frames still show up
+             * when the consumer drops them, e.g. while MQTT is disconnected. */
+            ESP_LOGI(TAG, "%02x:%02x:%02x:%02x:%02x:%02x %ddBm len %u",
+                     msg->mac[0], msg->mac[1], msg->mac[2],
+                     msg->mac[3], msg->mac[4], msg->mac[5],
+                     msg->rssi, (unsigned)msg->len);
+
             s_cb(msg, s_cb_ctx);
             xQueueSend(s_free, &msg, 0);
         }
