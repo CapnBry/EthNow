@@ -24,6 +24,7 @@
 #include "config.h"
 #include "espnow.h"
 #include "eth.h"
+#include "led.h"
 #include "mqtt.h"
 #include "ota.h"
 #include "web.h"
@@ -101,6 +102,12 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
     ESP_LOGI(TAG, "ethnow starting as %s", app_hostname());
+
+    /* Before the subsystems that drive them, so neither can light an LED that
+     * has not been configured as an output yet. */
+    if ((err = led_init()) != ESP_OK) {
+        ESP_LOGE(TAG, "led init failed: %s", esp_err_to_name(err));
+    }
 
 #ifdef HAVE_MDNS
     /* Lets the platformio "ota" environment target <hostname>.local. */

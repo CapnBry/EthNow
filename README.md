@@ -18,6 +18,16 @@ For every received frame, with `MAC` formatted `%02x%02x%02x%02x%02x%02x`:
 
 Payloads over 250 bytes (the ESP-NOW v1.0 limit) are not accepted.
 
+## LEDs
+
+Two indicators, both active low (the pin sinks the LED), with their GPIOs set
+in `src/config.h` — `-1` for either one that is not fitted:
+
+| Config | Default | Meaning |
+|---|---|---|
+| `CONFIG_LED_MQTT_GPIO` | 2 | solid while the broker connection is up |
+| `CONFIG_LED_ESPNOW_GPIO` | 5 | lit on a received frame, out after a period of silence |
+
 ## Status page
 
 `http://<host>/` is a live status page: hostname, address (and whether it was

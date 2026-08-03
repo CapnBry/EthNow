@@ -7,6 +7,7 @@
 
 #include "app_id.h"
 #include "config.h"
+#include "led.h"
 
 static const char *TAG = "mqtt";
 
@@ -21,11 +22,13 @@ static void on_mqtt_event(void *arg, esp_event_base_t base, int32_t id, void *da
     switch ((esp_mqtt_event_id_t)id) {
     case MQTT_EVENT_CONNECTED:
         atomic_store(&s_connected, true);
+        led_set(LED_MQTT, true);
         ESP_LOGI(TAG, "connected to " CONFIG_MQTT_URI);
         break;
 
     case MQTT_EVENT_DISCONNECTED:
         atomic_store(&s_connected, false);
+        led_set(LED_MQTT, false);
         ESP_LOGW(TAG, "disconnected");
         break;
 
@@ -71,8 +74,11 @@ void mqtt_set_online(bool online)
             s_started = true;
         }
     } else {
+        /* Stopping the client does not deliver MQTT_EVENT_DISCONNECTED, so
+         * the LED has to be cleared here or it stays lit with no session. */
         esp_mqtt_client_stop(s_client);
         atomic_store(&s_connected, false);
+        led_set(LED_MQTT, false);
         s_started = false;
     }
 }

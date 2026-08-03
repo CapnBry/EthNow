@@ -12,6 +12,7 @@
 #include "nvs_flash.h"
 
 #include "config.h"
+#include "led.h"
 
 static const char *TAG = "espnow";
 
@@ -102,9 +103,19 @@ static void on_recv(const esp_now_recv_info_t *info, const uint8_t *data, int le
 
 static void dispatch_task(void *arg)
 {
+    /* How long the activity LED stays lit after a frame. It is the queue wait
+     * as well, so the LED goes out on the same edge that tells us the air has
+     * been quiet for this long -- no timer, no extra task, and an arriving
+     * frame restarts it for free. */
+    static const TickType_t led_hold = pdMS_TO_TICKS(10000);
+
     for (;;) {
         espnow_msg_t *msg;
-        if (xQueueReceive(s_ready, &msg, portMAX_DELAY) == pdTRUE) {
+        if (xQueueReceive(s_ready, &msg, led_hold) == pdTRUE) {
+            /* Before the publish: the LED should track the air, not how long
+             * the broker takes to accept what was heard. */
+            led_set(LED_ESPNOW, true);
+
             /* Logged here rather than in the consumer so frames still show up
              * when the consumer drops them, e.g. while MQTT is disconnected. */
             ESP_LOGI(TAG, "%02x:%02x:%02x:%02x:%02x:%02x %ddBm len %u",
@@ -114,6 +125,8 @@ static void dispatch_task(void *arg)
 
             s_cb(msg, s_cb_ctx);
             xQueueSend(s_free, &msg, 0);
+        } else {
+            led_set(LED_ESPNOW, false);
         }
     }
 }
