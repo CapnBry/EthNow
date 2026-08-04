@@ -222,6 +222,24 @@ esp_err_t eth_start(eth_state_cb_t cb, void *ctx)
                             IP_EVENT, IP_EVENT_ETH_GOT_IP, on_got_ip, NULL, NULL),
                         TAG, "ip_event");
 
+#ifdef CONFIG_ETH_FORCE_10M
+    /*
+     * Has to happen here, in the window between driver_install and eth_start:
+     * esp_eth_ioctl() rejects all three of these unless the driver's FSM is
+     * stopped, and rejects the speed and duplex unless autonegotiation is
+     * already off. Failing the whole bring-up if any of them errors is
+     * deliberate -- getting halfway leaves autonegotiation disabled with the
+     * speed unset, which is a worse link than no link.
+     */
+    bool         autonego = false;
+    eth_speed_t  speed    = ETH_SPEED_10M;
+    eth_duplex_t duplex   = ETH_DUPLEX_HALF;
+    ESP_RETURN_ON_ERROR(esp_eth_ioctl(s_eth, ETH_CMD_S_AUTONEGO, &autonego), TAG, "s_autonego");
+    ESP_RETURN_ON_ERROR(esp_eth_ioctl(s_eth, ETH_CMD_S_SPEED, &speed), TAG, "s_speed");
+    ESP_RETURN_ON_ERROR(esp_eth_ioctl(s_eth, ETH_CMD_S_DUPLEX_MODE, &duplex), TAG, "s_duplex");
+    ESP_LOGI(TAG, "link pinned to 10BASE-T half duplex, autonegotiation off");
+#endif
+
     return esp_eth_start(s_eth);
 }
 

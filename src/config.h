@@ -94,6 +94,8 @@
 #define CONFIG_ETH_PIN_INT      8
 #define CONFIG_ETH_PIN_RST      6     /* -1 if not wired */
 #define CONFIG_ETH_SPI_MHZ      20    /* DM9051 is qualified to 20 MHz */
+/* Force the link to 10BASE-T instead of autonegotiating up to 100BASE-TX. */
+#define CONFIG_ETH_FORCE_10M
 
 /* ==========================================================================
  * OTA

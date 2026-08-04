@@ -8,9 +8,10 @@ CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 
-# --- PM ---------------------------------------------------------------
-CONFIG_PM_ENABLE=y
-CONFIG_PM_DFS_INIT_AUTO=y
+# --- Power management ------------------------------------------------------
+# Power management disabled, ESP-NOW keeps the CPU at 80M anyway
+#CONFIG_PM_ENABLE=y
+#CONFIG_PM_DFS_INIT_AUTO=y
 CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_80=y
 
 # --- Console ---------------------------------------------------------------
