@@ -8,6 +8,11 @@ CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
 CONFIG_PARTITION_TABLE_CUSTOM=y
 CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 
+# --- PM ---------------------------------------------------------------
+CONFIG_PM_ENABLE=y
+CONFIG_PM_DFS_INIT_AUTO=y
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_80=y
+
 # --- Console ---------------------------------------------------------------
 # Deliberately not configured. The C3 defaults are already UART0 on its IOMUX
 # pins (U0TXD/U0RXD) at 115200 with USB-serial-JTAG mirrored as secondary --
