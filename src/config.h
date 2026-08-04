@@ -115,3 +115,13 @@
 /* Browsers that can watch at once. Each holds an HTTP socket open for as long
  * as its tab is; the rest of the server's sockets stay free for OTA. */
 #define CONFIG_WEB_WS_CLIENTS   4
+
+/* ==========================================================================
+ * Info page
+ * ========================================================================== */
+
+/* Report the on-die temperature at /info. The C3's sensor sits in the same
+ * analog block as the radio and is left powered once installed, so it is a
+ * (small) permanent current draw for a number that is only ever looked at.
+ * Set to 0 to leave the sensor uninstalled; the field then reads "disabled". */
+#define CONFIG_INFO_TEMPERATURE 1

@@ -15,6 +15,7 @@
 #include "app_id.h"
 #include "config.h"
 #include "eth.h"
+#include "info.h"
 #include "mqtt.h"
 
 static const char *TAG = "web";
@@ -413,7 +414,10 @@ esp_err_t web_attach(httpd_handle_t server)
     };
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &root_uri), TAG, "root");
     ESP_RETURN_ON_ERROR(httpd_register_uri_handler(server, &ws_uri), TAG, "ws");
-    return ESP_OK;
+
+    /* The info page is part of the same UI and has nothing of its own to set
+     * up, so it rides along here rather than being wired in from ota.c. */
+    return info_attach(server);
 }
 
 void web_detach(void)

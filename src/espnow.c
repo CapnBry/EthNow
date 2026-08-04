@@ -218,3 +218,10 @@ uint32_t espnow_dropped(void)
 {
     return s_dropped;
 }
+
+void espnow_get_mac(uint8_t out[6])
+{
+    if (esp_wifi_get_mac(WIFI_IF_STA, out) != ESP_OK) {
+        memset(out, 0, 6);
+    }
+}

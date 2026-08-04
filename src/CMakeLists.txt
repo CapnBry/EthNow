@@ -3,9 +3,9 @@ file(GLOB_RECURSE app_sources ${CMAKE_CURRENT_SOURCE_DIR}/*.c)
 idf_component_register(
     SRCS ${app_sources}
     INCLUDE_DIRS "."
-    # The status page is served straight out of flash -- no filesystem, and
-    # nothing to keep in sync with the firmware image.
-    EMBED_TXTFILES "index.html"
+    # The pages are served straight out of flash -- no filesystem, and nothing
+    # to keep in sync with the firmware image.
+    EMBED_TXTFILES "index.html" "info.html"
     REQUIRES
         nvs_flash
         esp_event
@@ -17,4 +17,9 @@ idf_component_register(
         app_update
         driver
         mqtt
+        # /info: the running image's own header and segment table
+        bootloader_support
+        esp_partition
+        spi_flash
+        esp_pm
 )

@@ -40,3 +40,10 @@ uint32_t espnow_received(void);
 
 /* Frames dropped because the pool was exhausted (consumer fell behind). */
 uint32_t espnow_dropped(void);
+
+/*
+ * The station address frames are actually addressed to -- the factory MAC,
+ * or CONFIG_ESPNOW_MAC where that overrides it. Zeroed if Wi-Fi failed to
+ * start, which is the only case in which the two can disagree silently.
+ */
+void espnow_get_mac(uint8_t out[6]);

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<!--
+  EthNow device info page.
+
+  Embedded verbatim into the firmware (EMBED_TXTFILES in src/CMakeLists.txt)
+  and served from flash, so it must stay self-contained: no CDN, no fonts, no
+  external anything. Everything on it comes from one GET of /info.json.
+
+  The palette and panel styling are lifted from index.html deliberately -- the
+  two pages are one UI. The layout is not: almost every field here is a single
+  short value with a name, so it is a list of labelled rows rather than the
+  responsive cards the status page uses for its half-dozen live numbers.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EthNow &middot; device info</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f4f5f7;
+  --panel: #ffffff;
+  --panel-2: #fafbfc;
+  --line: #e3e6ea;
+  --ink: #14181d;
+  --ink-dim: #626d7a;
+  --accent: #2f6df6;
+  --ok: #12894c;
+  --ok-bg: #dcf5e7;
+  --bad: #cf2d3c;
+  --bad-bg: #fde3e5;
+  --warn: #96650a;
+  --warn-bg: #fbeecd;
+  --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 8px 24px rgba(16, 24, 40, .05);
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --panel-2: #1b212a;
+    --line: #262d38;
+    --ink: #e6edf3;
+    --ink-dim: #8b97a6;
+    --accent: #5b8cff;
+    --ok: #4ddb92;
+    --ok-bg: #10331f;
+    --bad: #ff7b86;
+    --bad-bg: #3a1418;
+    --warn: #f3c04e;
+    --warn-bg: #3a2c0c;
+    --shadow: none;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 24px 20px 48px;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+main { max-width: 760px; margin: 0 auto; }
+
+/* ---- header ---- */
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 650;
+  letter-spacing: -.02em;
+}
+h1 .host { color: var(--accent); }
+h1 .sep { color: var(--ink-dim); font-weight: 400; margin: 0 4px; }
+h1 .what { color: var(--ink-dim); font-size: 17px; font-weight: 550; }
+header .spacer { flex: 1 1 auto; }
+header a {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+header a:hover { text-decoration: underline; }
+
+#err {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--bad-bg);
+  color: var(--bad);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+#err[hidden] { display: none; }
+
+/* ---- sections ---- */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.panel > h2 {
+  margin: 0;
+  padding: 11px 16px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--line);
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+/* One field per row: name on the left, value hard right. The two columns are
+ * a grid rather than a flex space-between so every value in the document
+ * starts at the same x -- a column of MACs and byte counts that each begin
+ * wherever their label happened to end is unreadable. */
+.row {
+  display: grid;
+  grid-template-columns: minmax(9em, 15em) 1fr;
+  gap: 4px 16px;
+  align-items: baseline;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.row:last-child { border-bottom: 0; }
+.row:hover { background: var(--panel-2); }
+.row .k { color: var(--ink-dim); font-size: 13.5px; }
+.row .v {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.row .v .note {
+  font-family: system-ui, sans-serif;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  margin-left: 8px;
+}
+.row .v .on  { color: var(--ok);   font-weight: 650; }
+.row .v .off { color: var(--ink-dim); }
+.row .v .no  { color: var(--bad);  font-weight: 650; }
+
+/* Narrow screens: stacking beats squeezing a MAC into a third of the width. */
+@media (max-width: 480px) {
+  .row { grid-template-columns: 1fr; gap: 1px; }
+  .row .v .note { margin-left: 0; display: block; }
+}
+
+/* ---- usage bar ---- */
+.bar {
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 3px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.bar i { display: block; height: 100%; background: var(--accent); }
+.bar.warn i { background: var(--warn); }
+.bar.bad i { background: var(--bad); }
+
+/* ---- partition table ---- */
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+tbody td {
+  padding: 7px 16px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: var(--panel-2); }
+tbody td.running { font-weight: 650; color: var(--accent); }
+td.num { text-align: right; }
+
+footer {
+  margin-top: 18px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Eth<span class="host">Now</span><span class="sep">/</span><span class="what">device info</span></h1>
+    <span class="spacer"></span>
+    <a href="/">&larr; status page</a>
+  </header>
+
+  <div id="err" hidden></div>
+  <div id="body"></div>
+
+  <footer id="stamp"></footer>
+</main>
+
+<script>
+"use strict";
+
+/* Live values are re-fetched on this interval; everything else on the page is
+ * fixed for the life of the boot and simply gets rewritten with the same
+ * value. Slower than the status page's 1 s: nothing here moves quickly, and
+ * each poll rebuilds the whole document server-side. */
+const POLL_MS = 5000;
+
+const $ = (id) => document.getElementById(id);
+
+/* ------------------------------------------------------------- formatting */
+
+const pad = (n, w = 2) => String(n).padStart(w, "0");
+
+function fmtUptime(ms) {
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400);
+  const hms = `${pad(Math.floor(s / 3600) % 24)}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}`;
+  return d ? `${d}d ${hms}` : hms;
+}
+
+/* Binary units throughout: every size on this page is a flash or RAM region,
+ * and those are all powers of two. */
+function fmtBytes(n) {
+  if (n >= 1048576) return `${(n / 1048576).toFixed(n % 1048576 ? 2 : 0)} MB`;
+  if (n >= 1024) return `${(n / 1024).toFixed(n % 1024 ? 1 : 0)} KB`;
+  return `${n} B`;
+}
+
+const hex = (n) => `0x${n.toString(16).padStart(5, "0")}`;
+const yes = (b) => (b ? `<span class="on">yes</span>` : `<span class="off">no</span>`);
+const note = (t) => (t ? ` <span class="note">${t}</span>` : "");
+
+function bar(used, total) {
+  if (!total) return "";
+  const pct = Math.min(100, (used / total) * 100);
+  const cls = pct >= 90 ? " bad" : pct >= 75 ? " warn" : "";
+  return `<div class="bar${cls}"><i style="width:${pct.toFixed(1)}%"></i></div>`;
+}
+
+/* ESP_PARTITION_TYPE_APP is 0, _DATA is 1; the subtypes are only worth naming
+ * for the handful this image actually contains. */
+function partType(type, sub) {
+  if (type === 0) return sub === 0 ? "factory" : `app / ota_${sub - 0x10}`;
+  const names = { 0: "otadata", 1: "phy", 2: "nvs", 4: "nvs_keys" };
+  return `data / ${names[sub] ?? sub}`;
+}
+
+/* --------------------------------------------------------------- the page */
+
+/*
+ * The document, as data. Each row is [label, fn] where fn returns the value's
+ * HTML, or null to leave the row out entirely -- which is how fields that
+ * depend on a link that is down disappear rather than showing zeros.
+ */
+const SECTIONS = [
+  ["Firmware", [
+    ["Hostname", (d) => d.host],
+    ["Project", (d) => d.project],
+    ["Version", (d) => d.ver],
+    ["Built", (d) => d.built],
+    ["ESP-IDF", (d) => d.idf],
+    ["ELF SHA256", (d) => d.elf],
+    ["Running slot", (d) => `${d.slot}${note(`at ${hex(d.slot_addr)}`)}`],
+    ["Next OTA slot", (d) => d.next_slot],
+    ["Uptime", (d) => fmtUptime(d.up)],
+    ["Last reset", (d) => d.reset],
+    ["FreeRTOS tasks", (d) => d.tasks],
+  ]],
+
+  ["Program flash", [
+    ["Partition size", (d) => fmtBytes(d.slot_size)],
+    ["Used", (d) => (d.slot_used
+      ? `${fmtBytes(d.slot_used)}${note(`${((d.slot_used / d.slot_size) * 100).toFixed(1)}% of slot`)}` +
+        bar(d.slot_used, d.slot_size)
+      : `<span class="off">unreadable</span>`)],
+    ["Free", (d) => (d.slot_used ? fmtBytes(d.slot_free) : null)],
+  ]],
+
+  ["Microcontroller", [
+    ["Chip", (d) => `${d.chip}${note(`rev ${d.rev}`)}`],
+    ["Chip ID", (d) => `${d.chipid}${note("factory base MAC")}`],
+    ["Cores", (d) => d.cores],
+    ["Features", (d) => d.feat.trim()],
+    ["CPU frequency", (d) => `${d.cpu_mhz} MHz${note(`configured ${d.cpu_cfg_mhz} MHz`)}`],
+    ["APB / XTAL", (d) => `${d.apb_mhz} / ${d.xtal_mhz} MHz`],
+    ["Power management", (d) => (d.pm
+      ? `${yes(true)}${note(`DFS ${d.pm_min}–${d.pm_max} MHz, light sleep ${d.pm_ls ? "on" : "off"}`)}`
+      : `${yes(false)}${note("CONFIG_PM_ENABLE not set")}`)],
+    ["Die temperature", (d) => (d.temp === null
+      ? `<span class="off">not enabled</span>${note("CONFIG_INFO_TEMPERATURE")}`
+      : `${d.temp.toFixed(1)} &deg;C`)],
+  ]],
+
+  ["Memory", [
+    ["Free heap", (d) => `${fmtBytes(d.heap_free)}${note(`of ${fmtBytes(d.heap_total)}`)}` +
+      bar(d.heap_used, d.heap_total)],
+    ["Allocated", (d) => fmtBytes(d.heap_used)],
+    ["Largest free block", (d) => fmtBytes(d.heap_block)],
+    ["Free heap low-water", (d) => `${fmtBytes(d.heap_min)}${note("since boot")}`],
+  ]],
+
+  ["Flash chip", [
+    ["JEDEC ID", (d) => `${d.flash_id}${note(`manufacturer ${d.flash_mfr}`)}`],
+    ["Size", (d) => fmtBytes(d.flash_size)],
+    ["Access mode", (d) => `${d.flash_mode}${
+      d.flash_mode !== d.flash_mode_cfg ? note(`built for ${d.flash_mode_cfg}`) : ""}`],
+    ["Clock", (d) => d.flash_freq],
+  ]],
+
+  ["Ethernet", [
+    ["PHY", (d) => d.phy],
+    ["MAC address", (d) => d.eth_mac],
+    ["Link", (d) => (d.eth_up
+      ? `<span class="on">up</span>${note(`${d.eth_speed} Mbps, ${d.eth_duplex} duplex`)}`
+      : `<span class="no">down</span>`)],
+    ["IP address", (d) => `${d.ip}${note(d.dhcp ? "DHCP" : "static")}`],
+    ["Subnet mask", (d) => d.netmask],
+    ["Gateway", (d) => d.gw],
+    ["DNS", (d) => d.dns],
+  ]],
+
+  ["ESP-NOW", [
+    ["Receive MAC", (d) => `${d.now_mac}${note(d.now_mac_override
+      ? "CONFIG_ESPNOW_MAC override" : "factory Wi-Fi station MAC")}`],
+    ["Factory Wi-Fi MAC", (d) => (d.now_mac_override ? d.wifi_mac : null)],
+    ["Channel", (d) => d.ch],
+    ["Long range", (d) => `${yes(d.lr)}${note(d.lr ? "802.11b/g/n + LR" : "802.11b/g/n")}`],
+    ["Frames received", (d) => d.rx.toLocaleString()],
+    ["Frames dropped", (d) => (d.drop
+      ? `<span class="no">${d.drop.toLocaleString()}</span>${note("consumer fell behind")}`
+      : "0")],
+    ["Receive queue", (d) => `${d.queue} slots`],
+  ]],
+
+  ["Services", [
+    ["MQTT broker", (d) => d.broker],
+    ["MQTT state", (d) => (d.mqtt
+      ? `<span class="on">connected</span>` : `<span class="no">disconnected</span>`)],
+    ["Base topic", (d) => `${d.topic}${note(`QoS ${d.qos}, retain ${d.retain ? "on" : "off"}`)}`],
+    ["OTA endpoint", (d) => `POST :${d.ota_port}${d.ota_path}${note("unauthenticated")}`],
+    ["Status page", (d) => `${d.hist} frames of history, ${d.ws_clients} viewers`],
+  ]],
+];
+
+function renderSections(d) {
+  const html = SECTIONS.map(([title, rows]) => {
+    const body = rows.map(([label, fn]) => {
+      let v;
+      try {
+        v = fn(d);
+      } catch {
+        v = null;                       /* a field the device did not report */
+      }
+      if (v === null || v === undefined) return "";
+      return `<div class="row"><div class="k">${label}</div><div class="v">${v}</div></div>`;
+    }).join("");
+    return `<section class="panel"><h2>${title}</h2>${body}</section>`;
+  }).join("");
+
+  return html + renderParts(d);
+}
+
+function renderParts(d) {
+  const rows = (d.parts ?? []).map((p) => `<tr>
+    <td class="${p.label === d.slot ? "running" : ""}">${p.label}</td>
+    <td>${partType(p.type, p.sub)}</td>
+    <td class="num">${hex(p.addr)}</td>
+    <td class="num">${fmtBytes(p.size)}</td>
+  </tr>`).join("");
+
+  return `<section class="panel">
+    <h2>Partition table</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Label</th><th>Type</th><th>Offset</th><th>Size</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  </section>`;
+}
+
+/* ------------------------------------------------------------- transport */
+
+async function poll() {
+  try {
+    const res = await fetch("/info.json", { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const d = await res.json();
+
+    document.title = `${d.host} — device info`;
+    $("body").innerHTML = renderSections(d);
+    $("stamp").textContent = `updated ${new Date().toLocaleTimeString()}`;
+    $("err").hidden = true;
+  } catch (e) {
+    /* The previous render is left on screen on purpose: a device that has just
+     * rebooted into a new image is exactly when these numbers are wanted, and
+     * stale-but-labelled beats an empty page. */
+    $("err").textContent = `Could not reach the device: ${e.message}`;
+    $("err").hidden = false;
+  }
+}
+
+poll();
+setInterval(poll, POLL_MS);
+</script>
+</body>
+</html>

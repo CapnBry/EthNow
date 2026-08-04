@@ -25,13 +25,19 @@ static eth_state_cb_t   s_cb;
 static void            *s_cb_ctx;
 
 /*
- * Address snapshot for the status page, published from the event task and
- * read from anywhere. Both fields are written before the link is announced as
- * up and only ever read afterwards, so a plain copy is enough -- there is no
- * multi-word value here that could be torn into something misleading.
+ * Address snapshot for the status and info pages, published from the event
+ * task and read from anywhere. Every field is written before the link is
+ * announced as up and only ever read afterwards, so a plain copy is enough --
+ * the worst a reader racing the event task can see is one field from before
+ * the event and another from after, which is what an un-refreshed page would
+ * have shown anyway.
  */
-static char s_ip[16] = "0.0.0.0";
-static bool s_dhcp;
+static eth_info_t s_info = {
+    .ip      = "0.0.0.0",
+    .netmask = "0.0.0.0",
+    .gw      = "0.0.0.0",
+    .dns     = "0.0.0.0",
+};
 
 #ifdef CONFIG_IP
 static esp_err_t apply_static_ip(esp_netif_t *netif)
@@ -64,13 +70,28 @@ static void on_eth_event(void *arg, esp_event_base_t base, int32_t id, void *dat
     case ETHERNET_EVENT_CONNECTED: {
         uint8_t mac[6] = { 0 };
         esp_eth_ioctl(s_eth, ETH_CMD_G_MAC_ADDR, mac);
-        ESP_LOGI(TAG, "link up, mac %02x:%02x:%02x:%02x:%02x:%02x",
-                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        memcpy(s_info.mac, mac, sizeof(s_info.mac));
+
+        /* Only meaningful once the PHY has finished autonegotiating, which is
+         * exactly what this event reports. */
+        eth_speed_t speed = ETH_SPEED_10M;
+        eth_duplex_t duplex = ETH_DUPLEX_HALF;
+        esp_eth_ioctl(s_eth, ETH_CMD_G_SPEED, &speed);
+        esp_eth_ioctl(s_eth, ETH_CMD_G_DUPLEX_MODE, &duplex);
+        s_info.speed_mbps = speed == ETH_SPEED_100M ? 100 : 10;
+        s_info.full_duplex = duplex == ETH_DUPLEX_FULL;
+        s_info.up = true;
+
+        ESP_LOGI(TAG, "link up, mac %02x:%02x:%02x:%02x:%02x:%02x, %d Mbps %s duplex",
+                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
+                 s_info.speed_mbps, s_info.full_duplex ? "full" : "half");
         break;
     }
     case ETHERNET_EVENT_DISCONNECTED:
         ESP_LOGW(TAG, "link down");
-        snprintf(s_ip, sizeof(s_ip), "0.0.0.0");
+        s_info.up = false;
+        s_info.speed_mbps = 0;
+        snprintf(s_info.ip, sizeof(s_info.ip), "0.0.0.0");
         if (s_cb) {
             s_cb(false, s_cb_ctx);
         }
@@ -84,11 +105,20 @@ static void on_got_ip(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
     const ip_event_got_ip_t *event = (const ip_event_got_ip_t *)data;
 
-    snprintf(s_ip, sizeof(s_ip), IPSTR, IP2STR(&event->ip_info.ip));
+    snprintf(s_info.ip, sizeof(s_info.ip), IPSTR, IP2STR(&event->ip_info.ip));
+    snprintf(s_info.netmask, sizeof(s_info.netmask), IPSTR, IP2STR(&event->ip_info.netmask));
+    snprintf(s_info.gw, sizeof(s_info.gw), IPSTR, IP2STR(&event->ip_info.gw));
+
+    /* Read here rather than on demand: esp_netif is not safe to call from an
+     * arbitrary task, and this handler runs on the event loop that owns it. */
+    esp_netif_dns_info_t dns = { 0 };
+    if (esp_netif_get_dns_info(s_netif, ESP_NETIF_DNS_MAIN, &dns) == ESP_OK) {
+        snprintf(s_info.dns, sizeof(s_info.dns), IPSTR, IP2STR(&dns.ip.u_addr.ip4));
+    }
 
     esp_netif_dhcp_status_t dhcp = ESP_NETIF_DHCP_STOPPED;
     esp_netif_dhcpc_get_status(s_netif, &dhcp);
-    s_dhcp = dhcp != ESP_NETIF_DHCP_STOPPED;
+    s_info.dhcp = dhcp != ESP_NETIF_DHCP_STOPPED;
 
     ESP_LOGI(TAG, "ip " IPSTR " mask " IPSTR " gw " IPSTR,
              IP2STR(&event->ip_info.ip),
@@ -164,6 +194,10 @@ esp_err_t eth_start(eth_state_cb_t cb, void *ctx)
     ESP_RETURN_ON_ERROR(esp_read_mac(mac_addr, ESP_MAC_ETH), TAG, "read_mac");
     ESP_RETURN_ON_ERROR(esp_eth_ioctl(s_eth, ETH_CMD_S_MAC_ADDR, mac_addr), TAG, "set_mac");
 
+    /* Recorded now, not on link-up: the address is a property of the board and
+     * the info page should show it even with the cable unplugged. */
+    memcpy(s_info.mac, mac_addr, sizeof(s_info.mac));
+
     esp_netif_config_t netif_cfg = ESP_NETIF_DEFAULT_ETH();
     s_netif = esp_netif_new(&netif_cfg);
     ESP_RETURN_ON_FALSE(s_netif, ESP_ERR_NO_MEM, TAG, "netif_new");
@@ -193,8 +227,13 @@ esp_err_t eth_start(eth_state_cb_t cb, void *ctx)
 
 void eth_ip_str(char *out, size_t cap, bool *dhcp)
 {
-    snprintf(out, cap, "%s", s_ip);
+    snprintf(out, cap, "%s", s_info.ip);
     if (dhcp) {
-        *dhcp = s_dhcp;
+        *dhcp = s_info.dhcp;
     }
+}
+
+void eth_get_info(eth_info_t *out)
+{
+    *out = s_info;
 }
