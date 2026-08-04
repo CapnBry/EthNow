@@ -3,10 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "esp_app_desc.h"
 #include "esp_check.h"
 #include "esp_log.h"
-#include "esp_ota_ops.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -139,14 +137,11 @@ static int fmt_status(char *out, size_t cap)
     bool dhcp = false;
     eth_ip_str(ip, sizeof(ip), &dhcp);
 
-    const esp_app_desc_t *app = esp_app_get_description();
-    const esp_partition_t *running = esp_ota_get_running_partition();
-
     int n = snprintf(out, cap,
                      "{\"t\":\"s\",\"host\":\"%s\",\"ip\":\"%s\",\"dhcp\":%s,"
                      "\"mqtt\":%s,\"broker\":\"" CONFIG_MQTT_URI "\","
                      "\"rx\":%lu,\"drop\":%lu,\"ch\":%d,\"lr\":%s,"
-                     "\"up\":%lu,\"hist\":%d,\"ver\":\"%s\",\"slot\":\"%s\"}",
+                     "\"up\":%lu,\"hist\":%d}",
                      app_hostname(), ip, dhcp ? "true" : "false",
                      mqtt_is_connected() ? "true" : "false",
                      (unsigned long)espnow_received(), (unsigned long)espnow_dropped(),
@@ -157,7 +152,7 @@ static int fmt_status(char *out, size_t cap)
                      "false",
 #endif
                      (unsigned long)(esp_timer_get_time() / 1000),
-                     CONFIG_WEB_HISTORY, app->version, running->label);
+                     CONFIG_WEB_HISTORY);
 
     return (n > 0 && (size_t)n < cap) ? n : -1;
 }

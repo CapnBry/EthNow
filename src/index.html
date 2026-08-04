@@ -86,7 +86,6 @@ h1 {
 }
 h1 .host { color: var(--accent); }
 header .spacer { flex: 1 1 auto; }
-header .build { color: var(--ink-dim); font-size: 13px; font-variant-numeric: tabular-nums; }
 header a { color: var(--accent); text-decoration: none; font-size: 13.5px; font-weight: 600; }
 header a:hover { text-decoration: underline; }
 
@@ -254,7 +253,6 @@ tbody tr.pinned td.ts::after {
     <h1>Eth<span class="host">Now</span></h1>
     <span id="link">connecting</span>
     <span class="spacer"></span>
-    <span class="build" id="build"></span>
     <a href="/info">device info &rarr;</a>
   </header>
 
@@ -376,7 +374,6 @@ function applyStatus(s) {
   }
 
   $("up").textContent = fmtUptime(s.up);
-  $("build").textContent = `${s.ver} · ${s.slot}`;
 }
 
 /* ----------------------------------------------------------------- table */
