@@ -75,13 +75,15 @@
 /* Both are active low -- the pin sinks the LED, so it lights when the GPIO is
  * driven low. Set to -1 to leave a pin alone. */
 
-/* Solid while the MQTT broker connection is up. */
-#define CONFIG_LED_MQTT_GPIO    2
+/* Solid while the MQTT broker connection is up.
+ * ETH0-EVO has a LED on GPIO2, but overriden for my setup */
+//#define CONFIG_LED_MQTT_GPIO    2
+#define CONFIG_LED_MQTT_GPIO    19
 
 /* Lit on every received ESP-NOW frame, dark again after a quiet spell.
- * GPIO2 is a C3 strapping pin and has to read high at reset -- an active-low
- * LED wired to 3V3 holds it there, but do not add a pull-down. */
-#define CONFIG_LED_ESPNOW_GPIO  5
+ * ETH0-EVO has a LED on GPIO5, but overriden for my setup */
+//#define CONFIG_LED_ESPNOW_GPIO  5
+#define CONFIG_LED_ESPNOW_GPIO  18
 
 /* ==========================================================================
  * DM9051 SPI ethernet wiring (ETH01-EVO)
